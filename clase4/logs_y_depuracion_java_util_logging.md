@@ -182,6 +182,8 @@ Detalles de depuración:
 ```java
 logger.fine("Entrando al método login");
 ```
+### La jerarquía de niveles 
+![piramide de logging](assets/piramide-de-niveles.png)
 
 ---
 
@@ -234,20 +236,6 @@ try {
 ```
 
 ---
-
-# 7. Logging vs Debugger
-
-Ambos ayudan a detectar errores, pero tienen propósitos distintos.
-
-## Debugger
-Permite:
-
-- pausar ejecución,
-- inspeccionar variables,
-- avanzar paso a paso.
-
-Se usa durante desarrollo.
-
 ## Logging
 Permite:
 
@@ -256,3 +244,189 @@ Permite:
 - diagnosticar errores en producción.
 
 Se usa tanto en desarrollo como en producción.
+
+### Ejemplo práctico: Sistema de autenticación con logs y manejo de excepciones
+
+
+Crear un programa que:
+
+* Solicite usuario y contraseña.
+* Valide las credenciales.
+* Registre eventos en consola y archivo.
+* Lance excepciones cuando la autenticación falle.
+
+#### 1. Excepción personalizada
+
+```java
+public class AutenticacionException extends Exception {
+    public AutenticacionException(String mensaje) {
+        super(mensaje);
+    }
+}
+```
+#### 2. Servicio de autenticación
+```java
+import java.util.logging.Logger;
+
+public class ServicioAutenticacion {
+
+    private static final Logger logger = Logger.getLogger(ServicioAutenticacion.class.getName());
+
+    public void login(String usuario, String password) throws AutenticacionException {
+
+        logger.info("Intentando autenticar usuario: " + usuario);
+
+        if (usuario == null || password == null) {
+            logger.warning("Usuario o contraseña nulos");
+            throw new AutenticacionException("Datos de acceso inválidos");
+        }
+
+        if (!usuario.equals("admin") || !password.equals("1234")) {
+            logger.warning("Credenciales incorrectas para usuario: " + usuario);
+            throw new AutenticacionException("Credenciales incorrectas");
+        }
+
+        logger.info("Usuario autenticado correctamente: " + usuario);
+    }
+}
+```
+#### 3. Clase principal
+```java
+import java.io.IOException;
+import java.util.Scanner;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+public class App {
+
+    private static final Logger logger = Logger.getLogger(App.class.getName());
+
+    public static void main(String[] args) {
+
+        try {
+            FileHandler archivo = new FileHandler("app.log", true);
+            archivo.setFormatter(new SimpleFormatter());
+            logger.addHandler(archivo);
+
+            ServicioAutenticacion servicio = new ServicioAutenticacion();
+
+            Scanner sc = new Scanner(System.in);
+
+            System.out.print("Usuario: ");
+            String usuario = sc.nextLine();
+
+            System.out.print("Contraseña: ");
+            String password = sc.nextLine();
+
+            servicio.login(usuario, password);
+
+            System.out.println("Acceso concedido");
+
+        } catch (AutenticacionException e) {
+            logger.severe("Error de autenticación: " + e.getMessage());
+            System.out.println("Acceso denegado: " + e.getMessage());
+
+        } catch (IOException e) {
+            logger.severe("Error al configurar archivo de logs");
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+#### Resultado esperado en app.log
+```text
+INFO: Intentando autenticar usuario: admin
+WARNING: Credenciales incorrectas para usuario: admin
+SEVERE: Error de autenticación: Credenciales incorrectas
+```
+
+
+### Jerarquía de Loggers en el ejemplo
+![jerarquia de loggers](assets/jerarquia.png)
+
+### Separar logs informativos y errores en dos archivos
+
+```java
+import java.io.IOException;
+import java.util.logging.*;
+
+public class App {
+
+    private static final Logger logger = Logger.getLogger(App.class.getName());
+
+    public static void main(String[] args) {
+
+        try {
+            // Archivo para mensajes informativos
+            FileHandler infoHandler = new FileHandler("info.log", true);
+            infoHandler.setFormatter(new SimpleFormatter());
+            infoHandler.setLevel(Level.INFO);
+
+            // Archivo para errores graves
+            FileHandler errorHandler = new FileHandler("errores.log", true);
+            errorHandler.setFormatter(new SimpleFormatter());
+            errorHandler.setLevel(Level.SEVERE);
+
+            logger.addHandler(infoHandler);
+            logger.addHandler(errorHandler);
+
+            logger.setUseParentHandlers(false);
+
+            logger.info("Aplicación iniciada");
+            logger.warning("El usuario ingresó un dato sospechoso");
+            logger.severe("Error al conectar con la base de datos");
+
+        } catch (IOException e) {
+            System.out.println("Error al configurar logs");
+        }
+    }
+}
+```
+
+### Personalizando nuestro propio Formatter 
+
+``SimpleFormatter`` usa el formato estándar de Java.
+Si queremos decidir cómo se ve cada log, creamos nuestro propio formatter
+
+Se hace creando una clase que herede de Formatter.
+```java
+import java.util.logging.Formatter;
+import java.util.logging.LogRecord;
+
+public class MiFormato extends Formatter {
+
+    @Override
+    public String format(LogRecord record) {
+        return "[" + record.getLevel() + "] " + record.getMessage() + "\\n";
+    }
+}
+```
+El parámetro `LogRecord record` contiene información como:
+
+* nivel
+* mensaje
+* fecha
+* clase
+* método
+
+Y tú decides cómo convertirlo en texto. En este caso:
+```java
+return "[" + record.getLevel() + "] " + record.getMessage() + "\\n";
+```
+genera:
+```text
+[INFO] Aplicación iniciada
+```
+Luego se usa en el handler:
+
+```java
+FileHandler archivo = new FileHandler("app.log", true);
+archivo.setFormatter(new MiFormato());
+```
+
+Visualmente el flujo se ve así:
+```text
+Logger -> Handler -> Formatter -> Archivo
+```
