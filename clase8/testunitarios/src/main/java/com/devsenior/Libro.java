@@ -40,9 +40,19 @@ public class Libro {
     }
 
     
-     @Override
+    @Override //estamos eclipsando el método equals heredado.
     public boolean equals (Object o){
-        
+        //1. Identidad (this == o), verificar: se refiere a si los dos objetos tienen la misma referencia en memoria.
+        if(this == o) return true;
+
+        //2. Nulidad ó comparación de clases: descartar igualdad.
+        if(o == null  ||  this.getClass() != o.getClass()){
+            return false;
+        }
+
+        //3. Criterio propio o que nosotros mismos establecemos: Si los dos libros tienen el mismo título return true
+        Libro libro = (Libro) o; //casting, casteo, conversión explícita, parseo.
+        return this.titulo.equals(libro.getTitulo());
     }
     
 
